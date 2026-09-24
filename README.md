@@ -1,15 +1,16 @@
 # multi-claude
 
-**Use two Claude accounts (personal + Team) in Claude Code on the same machine, and carry a conversation from one account to the other when you hit a usage limit.**
+**Use several Claude accounts (personal + Team + as many others as you like) in Claude Code on the same machine, and carry a conversation from one account to another when you hit a usage limit.**
 
-After setup you have two commands:
+After a default setup you have two commands (add more with `./setup.sh <name> ...` — see [Adding more accounts](#5a-adding-more-accounts)):
 
 | Command | Account | Config folder |
 |---|---|---|
 | `claude` | Personal (your default — unchanged) | `~/.claude` |
 | `claude-team` | Team | `~/.claude-team` |
+| `claude-<name>` | Any extra account you add | `~/.claude-<name>` |
 
-Both share your settings, `CLAUDE.md`, skills, agents, slash commands **and your conversation history**, so this works:
+All profiles share your settings, `CLAUDE.md`, skills, agents, slash commands **and your conversation history**, so this works:
 
 ```bash
 claude            # working on a project with the personal account... usage limit hit
@@ -27,6 +28,7 @@ Works on **macOS and Linux**, with **zsh or bash**. Setup takes about two minute
 3. [Check it worked](#3-check-it-worked)
 4. [Daily use](#4-daily-use)
 5. [Switching accounts mid-conversation](#5-switching-accounts-mid-conversation)
+   - [Adding more accounts](#5a-adding-more-accounts)
 6. [What the script actually does](#6-what-the-script-actually-does)
 7. [Manual setup (no script)](#7-manual-setup-no-script)
 8. [Troubleshooting](#8-troubleshooting)
@@ -89,6 +91,12 @@ Done. Next steps: ...
 ```
 
 The script is safe to run more than once — it only adds what's missing and never deletes anything.
+
+Want more than one extra account? Pass the names you want instead — each name `X` becomes a `claude-X` command:
+
+```bash
+./setup.sh team work lab     # -> claude-team, claude-work, claude-lab
+```
 
 ### Step 3 — Reload your shell so the new alias exists
 
@@ -173,11 +181,37 @@ Tips:
 
 ---
 
+### 5a. Adding more accounts
+
+You can add as many accounts as you need, at any time — including on a machine that already has `claude-team`:
+
+```bash
+cd multi-claude && git pull
+./setup.sh work                  # adds claude-work  (~/.claude-work)
+./setup.sh lab1 lab2 grant-xyz   # adds several at once
+source ~/.bashrc                 # or ~/.zshrc
+claude-work                      # first launch: sign in with that account
+```
+
+Names may contain letters, digits, `-` and `_`. `work` and `claude-work` are treated the same. Re-running with a name that already exists just checks its links.
+
+Manage profiles:
+
+| Command | What it does |
+|---|---|
+| `./setup.sh --list` | Show every profile installed in your rc file and whether its folder exists |
+| `./setup.sh --remove work` | Remove the `claude-work` alias; asks before deleting `~/.claude-work` (its login + local state) |
+| `./setup.sh --help` | Usage summary |
+
+Every profile shares the same `projects/` history, so you can hop along a chain of accounts: `claude` → `claude-team -c` → `claude-work -c` → …
+
+---
+
 ## 6. What the script actually does
 
-`setup.sh` performs four things, all idempotent:
+For each profile name (default: `team`), `setup.sh` performs four things, all idempotent:
 
-1. **Creates `~/.claude-team`** — the Team profile's config folder.
+1. **Creates `~/.claude-<name>`** (e.g. `~/.claude-team`) — that profile's config folder.
 2. **Symlinks shared files** so both profiles behave identically:
    - `~/.claude-team/settings.json` → `~/.claude/settings.json`
    - `~/.claude-team/CLAUDE.md` → `~/.claude/CLAUDE.md`
@@ -199,11 +233,13 @@ What stays **separate** between the profiles (deliberately):
 
 Safety: if the script finds a real file or folder (not a symlink) where it wants to put a link, it moves it aside as `<name>.bak.<timestamp>` rather than deleting it.
 
-Overridable via environment variables if you want different names:
+When run with **no names**, the legacy overrides still work for a single custom profile:
 
 ```bash
 CLAUDE_TEAM_DIR=~/.claude-work CLAUDE_TEAM_ALIAS=claude-work ./setup.sh
 ```
+
+With names, the folder is always `~/.claude-<name>` and the command `claude-<name>`.
 
 ---
 
@@ -272,6 +308,14 @@ claude-team --resume ~/.claude/projects/-Users-you-myproject/<session-id>.jsonl
 ---
 
 ## 10. Undo
+
+For any extra profile:
+
+```bash
+./setup.sh --remove team     # removes the alias, then asks before deleting ~/.claude-team
+```
+
+Or by hand:
 
 ```bash
 rm -rf ~/.claude-team    # removes the Team login and the symlinks; ~/.claude is untouched
